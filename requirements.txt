@@ -1,0 +1,14 @@
+
+gudhi==3.10.1
+matplotlib==3.9.2
+networkx==3.3
+numba==0.60.0
+numpy==2.0.1
+pandas==2.2.2
+POT==0.9.4
+ray[tune]==2.34.0
+scikit-learn==1.5.1
+seaborn==0.13.2
+torch==2.4.0
+torch-geometric==2.5.3
+tqdm==4.66.5

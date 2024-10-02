@@ -1,0 +1,27 @@
+
+
+eval_every: 1
+rewire_iterations: 40
+
+train_fraction: 0.8
+validation_fraction: 0.1
+test_fraction: 0.1
+
+model:
+  dropout: 0.5
+  num_layers: 4
+  hidden_dim: 64
+  last_layer_fa: false
+  pooling: "mean"
+  multidimensional: False
+  max_dimension: 2
+
+optim:
+  learning_rate: .001
+  batch_size: 64
+  max_epochs: 500
+  stopping_criterion: validation
+  stopping_threshold: 1.01
+  patience: 100
+
+
