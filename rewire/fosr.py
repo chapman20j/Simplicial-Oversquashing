@@ -3,6 +3,7 @@
 Adapted from https://github.com/kedar2/FoSR
 """
 from math import inf
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -12,7 +13,9 @@ from utils.adjacency import Adjacency
 
 
 @jit(nopython=True)
-def choose_edge_to_add(x, edge_index, degrees):
+def choose_edge_to_add(
+    x: np.ndarray, edge_index: np.ndarray, degrees: np.ndarray
+) -> tuple[int, int]:
     # chooses edge (u, v) to add which minimizes y[u]*y[v]
     n = x.size
     m = edge_index.shape[1]
@@ -29,7 +32,7 @@ def choose_edge_to_add(x, edge_index, degrees):
 
 
 @jit(nopython=True)
-def compute_degrees(edge_index, num_nodes=None):
+def compute_degrees(edge_index: np.ndarray, num_nodes: Optional[int] = None):
     # returns array of degrees of all nodes
     if num_nodes is None:
         num_nodes = np.max(edge_index) + 1
@@ -41,13 +44,13 @@ def compute_degrees(edge_index, num_nodes=None):
 
 
 @jit(nopython=True)
-def add_edge(edge_index, u, v):
+def add_edge(edge_index: np.ndarray, u: int, v: int) -> np.ndarray:
     new_edge = np.array([[u, v], [v, u]])
     return np.concatenate((edge_index, new_edge), axis=1)
 
 
 @jit(nopython=True)
-def adj_matrix_multiply(edge_index, x):
+def adj_matrix_multiply(edge_index: np.ndarray, x: np.ndarray) -> np.ndarray:
     # given an edge_index, computes Ax, where A is the corresponding adjacency matrix
     n = x.size
     y = np.zeros(n)
@@ -60,7 +63,7 @@ def adj_matrix_multiply(edge_index, x):
 
 
 @jit(nopython=True)
-def compute_spectral_gap(edge_index, x):
+def compute_spectral_gap(edge_index: np.ndarray, x: np.ndarray) -> float:
     m = edge_index.shape[1]
     n = np.max(edge_index) + 1
     degrees = compute_degrees(edge_index, num_nodes=n)
@@ -73,8 +76,12 @@ def compute_spectral_gap(edge_index, x):
 
 @jit(nopython=True)
 def _edge_rewire(
-    edge_index, edge_type, x=None, rewire_iterations=50, initial_power_iters=50
-):
+    edge_index: np.ndarray,
+    edge_type: np.ndarray,
+    x: Optional[np.ndarray] = None,
+    rewire_iterations: int = 50,
+    initial_power_iters: int = 50,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     m = edge_index.shape[1]
     n = np.max(edge_index) + 1
     if x is None:
@@ -98,8 +105,12 @@ def _edge_rewire(
 
 
 def edge_rewire(
-    edge_index, x=None, edge_type=None, rewire_iterations=50, initial_power_iters=5
-):
+    edge_index: np.ndarray,
+    x: Optional[np.ndarray] = None,
+    edge_type: Optional[Union[np.ndarray, torch.Tensor]] = None,
+    rewire_iterations: int = 50,
+    initial_power_iters: int = 5,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     m = edge_index.shape[1]
     n = np.max(edge_index) + 1
     if x is None:

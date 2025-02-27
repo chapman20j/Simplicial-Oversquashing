@@ -25,7 +25,7 @@ class SGC(Module):
         x, edge_index, batch = data.x, data.edge_index, data.batch
         nodes = x.shape[0]
         edge_index = torch.sparse_coo_tensor(
-            edge_index, torch.ones(edge_index.shape[1]), (nodes, nodes)
+            edge_index, torch.ones(edge_index.shape[1], device=x.device), (nodes, nodes)
         )
         for _ in range(self.num_layers):
             x = torch.spmm(edge_index, x)

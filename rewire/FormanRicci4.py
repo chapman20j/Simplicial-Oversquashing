@@ -3,6 +3,8 @@
 Adapted from https://github.com/Weber-GeoML/AFRC_Rewiring/
 """
 
+from typing import Optional
+
 import networkx as nx
 
 
@@ -14,11 +16,13 @@ def _compute_afrc_edge(G: nx.Graph, ni: int, nj: int, t_num: int, q_num: int) ->
     return afrc
 
 
-def _compute_afrc_edges(G: nx.Graph, weight="weight", edge_list=[]) -> dict:
+def _compute_afrc_edges(
+    G: nx.Graph, weight: str = "weight", edge_list: Optional[list] = None
+) -> dict:
     """
     Compute Augmented Forman-Ricci curvature for edges in  given edge lists.
     """
-    if edge_list == []:
+    if edge_list is None:
         edge_list = G.edges()
 
     edge_afrc = {}

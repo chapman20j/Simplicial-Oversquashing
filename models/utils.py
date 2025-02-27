@@ -54,14 +54,19 @@ def batch_common_inds(
     """
     # count the number of nodes in each graph
     num_nodes = torch.bincount(batch)
+    device = num_nodes.device
 
     tot = 0
     lower_out = []
     upper_out = []
     ngraphs = len(num_nodes)
     for i in range(ngraphs):
-        lower_out.append(tot + torch.tensor(lower_intersection[i], dtype=torch.long))
-        upper_out.append(tot + torch.tensor(upper_union[i], dtype=torch.long))
+        lower_out.append(
+            tot + torch.tensor(lower_intersection[i], dtype=torch.long, device=device)
+        )
+        upper_out.append(
+            tot + torch.tensor(upper_union[i], dtype=torch.long, device=device)
+        )
         tot += num_nodes[i]
 
     return torch.concat(lower_out, dim=0), torch.concat(upper_out, dim=0)

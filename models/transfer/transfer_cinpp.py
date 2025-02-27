@@ -7,10 +7,8 @@ Modified network head for graph transfer tasks.
 import torch
 import torch.nn.functional as F
 
-from models.utils import get_pooling_fn
-
-from ..cellular.cinpp import CINppConv
-from ..utils import batch_common_inds
+from models.cellular.cinpp import CINppConv
+from models.utils import batch_common_inds, get_pooling_fn
 
 
 class CINpp(torch.nn.Module):
@@ -57,9 +55,13 @@ class CINpp(torch.nn.Module):
         root_mask = data.root_mask
 
         # * use batch to modify upper_ind
-        lower_ind, upper_ind = batch_common_inds(
-            data.lower_intersection, data.upper_union, batch
-        )
+        if batch is None:
+            lower_ind = data.lower_intersection
+            upper_ind = data.upper_union
+        else:
+            lower_ind, upper_ind = batch_common_inds(
+                data.lower_intersection, data.upper_union, batch
+            )
 
         x = F.relu(
             self.conv1(x, edge_index, edge_type, upper_ind, lower_ind, cell_dimension)

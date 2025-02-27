@@ -38,6 +38,7 @@ class GCN(torch.nn.Module):
         x = F.relu(self.conv1(x, edge_index))
         for conv in self.convs:
             x = F.relu(conv(x, edge_index))
+
         x = self.pooling(x, batch)
         x = F.relu(self.lin1(x))
         x = F.dropout(x, p=self.dropout, training=self.training)

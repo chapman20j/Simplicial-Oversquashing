@@ -23,23 +23,23 @@ from data.relational_structure import (
 
 def path_of_cliques(num_cliques: int, size_of_clique: int) -> nx.Graph:
     """Creates path of cliques graph."""
-    G = nx.Graph([])
+    nx_graph = nx.Graph([])
     for i in range(num_cliques):
         for j in range(size_of_clique):
             for k in range(j):
-                G.add_edge(i * size_of_clique + j, i * size_of_clique + k)
+                nx_graph.add_edge(i * size_of_clique + j, i * size_of_clique + k)
         if i != num_cliques - 1:
-            G.add_edge((i + 1) * size_of_clique - 1, (i + 1) * size_of_clique)
-    return G
+            nx_graph.add_edge((i + 1) * size_of_clique - 1, (i + 1) * size_of_clique)
+    return nx_graph
 
 
 def create_neighborsmatch_labels(
-    G: nx.Graph, root_vertex: int, vertices_to_label: list[int]
+    nx_graph: nx.Graph, root_vertex: int, vertices_to_label: list[int]
 ) -> tuple[torch.Tensor, int, torch.Tensor]:
     """Generates a dataset for the neighborsmatch problem
 
     Args:
-        G: base graph
+        nx_graph: base graph
         root_vertex: Vertex where classification is to be done
         vertices_to_label: Vertices considered for matching.
 
@@ -49,11 +49,11 @@ def create_neighborsmatch_labels(
         root_mask: Mask for the root node
     """
     num_classes = len(vertices_to_label)
-    num_nodes = len(list(G.nodes))
+    num_nodes = len(list(nx_graph.nodes))
     class_labels = torch.randperm(num_classes)
     vertex_index_list = []
     matching_entry = torch.randint(0, num_classes, ())
-    for i in range(len(G.nodes)):
+    for i in range(len(nx_graph.nodes)):
         if i in vertices_to_label:
             entry = class_labels[vertices_to_label.index(i)]
             if entry == matching_entry:
@@ -66,7 +66,7 @@ def create_neighborsmatch_labels(
     vertex_one_hot_tensor = one_hot(torch.stack(vertex_index_list))
 
     # encoding of node numbers, so the root can distinguish between them
-    node_indictors = one_hot(torch.arange(len(G.nodes)))
+    node_indictors = one_hot(torch.arange(len(nx_graph.nodes)))
     vertex_features = torch.concat([vertex_one_hot_tensor, node_indictors], dim=1).to(
         dtype=torch.float32
     )
@@ -78,7 +78,7 @@ def create_neighborsmatch_labels(
 
 @torch.no_grad()
 def create_neighborsmatch_dataset(
-    G: nx.Graph,
+    nx_graph: nx.Graph,
     root_vertex: int,
     vertices_to_label: list[int],
     sample_size: int,
@@ -88,7 +88,7 @@ def create_neighborsmatch_dataset(
     """Creates a dataset for the neighborsmatch problem
 
     Args:
-        G: base graph
+        nx_graph: base graph
         root_vertex: classification node
         vertices_to_label: nodes to consider for matching
         sample_size: dataset size
@@ -102,18 +102,18 @@ def create_neighborsmatch_dataset(
         Dataset for the neighborsmatch problem
     """
     data_list = []
-    edge_index = from_networkx(G).edge_index
+    edge_index = from_networkx(nx_graph).edge_index
     edge_index = to_undirected(edge_index)
     for i in range(sample_size):
         x, y, root_mask = create_neighborsmatch_labels(
-            G, root_vertex, vertices_to_label
+            nx_graph, root_vertex, vertices_to_label
         )
         data_list.append(Data(x=x, y=y, edge_index=edge_index, root_mask=root_mask))
 
     complex_list = []
     if pretransform == "none":
         return [none_complex(data) for data in data_list]
-    elif pretransform == "clique":
+    elif pretransform in ["clique", "ring"]:
         # Do the complex computation once
         first_complex, simplex_to_id, simplices = data_to_relational_graph(
             data_list[0],

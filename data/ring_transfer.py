@@ -84,7 +84,7 @@ def generate_ring_transfer_graph_dataset(
     complex_list = []
     if pretransform == "none":
         return [none_complex(data) for data in data_list]
-    elif pretransform == "clique":
+    elif pretransform in ["clique", "ring"]:
         # Do the complex computation once
         first_complex, simplex_to_id, _ = data_to_relational_graph(
             data_list[0],

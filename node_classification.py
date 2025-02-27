@@ -1,15 +1,14 @@
-# classification.py
+# node_classification.py
 """
 Tests graph lifting and rewiring on graph classifiation benchmarks.
 """
 
 import argparse
 
-import torch
 import yaml
 from ray.tune import TuneConfig, Tuner, grid_search, with_resources
 
-from utils.experiment import experiment
+from utils.node_experiment import experiment
 from utils.plot_results import orig_df_to_latex
 
 if __name__ == "__main__":
@@ -18,18 +17,15 @@ if __name__ == "__main__":
     with open("experiment_config.yaml", "r") as f:
         args = yaml.safe_load(f)
 
-    NUM_SAMPLES = 10
-    MAX_CONCURRENT = 60
-
     # * Get arguments
-    parser = argparse.ArgumentParser(description="Graph Classification")
+    parser = argparse.ArgumentParser(description="Node Classification")
     parser.add_argument(
         "--datasets",
         type=str,
         nargs="+",
-        default=["MUTAG"],
+        default=["TEXAS"],
         help="List of datasets to use for classification",
-        choices=["MUTAG", "ENZYMES", "PROTEINS", "NCI1", "IMDB-BINARY"],
+        choices=["TEXAS", "WISCONSIN", "CORNELL", "CORA", "CITESEER"],
     )
     parser.add_argument(
         "--lifts",
@@ -37,7 +33,7 @@ if __name__ == "__main__":
         nargs="+",
         default=["none"],
         help="List of graph lifts to use",
-        choices=["none", "clique"],
+        choices=["none", "clique", "ring"],
     )
     parser.add_argument(
         "--rewiring",
@@ -45,33 +41,47 @@ if __name__ == "__main__":
         nargs="+",
         default=["none"],
         help="List of rewiring strategies to use",
-        choices=["none", "fosr", "sdrf", "afr4"],
+        choices=["none", "fosr", "sdrf", "afr4", "prune", "prune1d"],
+    )
+    parser.add_argument(
+        "--samples",
+        type=int,
+        default=10,
+        help="Number of trials to use for each configuration",
+    )
+    parser.add_argument(
+        "--max_concurrent",
+        type=int,
+        default=70,
+        help="Number of trials to run concurrently",
     )
     command_args = parser.parse_args()
+    if command_args.samples <= 0:
+        raise ValueError("Number of samples must be non-negative")
+    if command_args.max_concurrent <= 0:
+        raise ValueError("Number of concurrent trials must be non-negative")
 
     # * Set up grid search
     args["model_name"] = grid_search(
         [
-            "gcn",
             "gin",
-            "rgcn",
             "rgin",
-            "sgc",
             "sin",
-            "cin",
             "cin++",
         ]
     )
+    args["model"]["pooling"] = "none"
     args["dataset"] = grid_search(command_args.datasets)
     args["complex"] = grid_search(command_args.lifts)
     args["rewiring"] = grid_search(command_args.rewiring)
+    args["rewire_iterations"] = 40
+
     args["dataset_kwargs"] = {}
 
-    resources_per_trial = (
-        {"cpu": 1, "gpu": 0.2} if torch.cuda.is_available() else {"cpu": 1, "gpu": 0}
-    )
+    resources_per_trial = {"cpu": 1, "gpu": 0}
     tune_config = TuneConfig(
-        num_samples=NUM_SAMPLES, max_concurrent_trials=MAX_CONCURRENT
+        num_samples=command_args.samples,
+        max_concurrent_trials=command_args.max_concurrent,
     )
     trainable = with_resources(experiment, resources_per_trial)
 
@@ -90,12 +100,12 @@ if __name__ == "__main__":
     df = results_grid.get_dataframe()
 
     stat_list = [
-        "train_acc",
-        "validation_acc",
-        "test_acc",
-        "best_train_acc",
-        "best_validation_acc",
-        "best_test_acc",
+        "train_metric",
+        "validation_metric",
+        "test_metric",
+        "best_train_metric",
+        "best_validation_metric",
+        "best_test_metric",
     ]
 
     for stat in stat_list:

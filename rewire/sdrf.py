@@ -4,21 +4,31 @@ Originally from https://github.com/jctops/understanding-oversquashing
 Adapted from https://github.com/kedar2/FoSR
 """
 
+from typing import Optional
+
 import numpy as np
 import torch
 from numba import jit, prange
+from torch_geometric.data import Data
 from torch_geometric.utils import to_networkx
 
 from utils.adjacency import Adjacency
 
 
-def softmax(a, tau=1):
+def softmax(a: np.ndarray, tau: float = 1) -> np.ndarray:
     exp_a = np.exp(a * tau)
     return exp_a / exp_a.sum()
 
 
 @jit(nopython=True)
-def _balanced_forman_curvature(A, A2, d_in, d_out, N, C):
+def _balanced_forman_curvature(
+    A: np.ndarray,
+    A2: np.ndarray,
+    d_in: np.ndarray,
+    d_out: np.ndarray,
+    N: int,
+    C: np.ndarray,
+):
     for i in prange(N):
         for j in prange(N):
             if A[i, j] == 0:
@@ -61,7 +71,9 @@ def _balanced_forman_curvature(A, A2, d_in, d_out, N, C):
                 C[i, j] += sharp_ij / (d_max * lambda_ij)
 
 
-def balanced_forman_curvature(A, C=None):
+def balanced_forman_curvature(
+    A: np.ndarray, C: Optional[np.ndarray] = None
+) -> np.ndarray:
     N = A.shape[0]
     A2 = np.matmul(A, A)
     d_in = A.sum(axis=0)
@@ -75,7 +87,18 @@ def balanced_forman_curvature(A, C=None):
 
 @jit(nopython=True)
 def _balanced_forman_post_delta(
-    A, A2, d_in_x, d_out_y, N, D, x, y, i_neighbors, j_neighbors, dim_i, dim_j
+    A: np.ndarray,
+    A2: np.ndarray,
+    d_in_x: np.ndarray,
+    d_out_y: np.ndarray,
+    N: int,
+    D: np.ndarray,
+    x: int,
+    y: int,
+    i_neighbors: np.ndarray,
+    j_neighbors: np.ndarray,
+    dim_i: int,
+    dim_j: int,
 ):
     for I in prange(dim_i):
         for J in prange(dim_j):
@@ -154,7 +177,14 @@ def _balanced_forman_post_delta(
                 D[I, J] += sharp_ij / (d_max * lambda_ij)
 
 
-def balanced_forman_post_delta(A, x, y, i_neighbors, j_neighbors, D=None):
+def balanced_forman_post_delta(
+    A: np.ndarray,
+    x: int,
+    y: int,
+    i_neighbors: list,
+    j_neighbors: list,
+    D: Optional[np.ndarray] = None,
+) -> np.ndarray:
     N = A.shape[0]
     A2 = np.matmul(A, A)
     d_in = A[:, x].sum()
@@ -180,8 +210,13 @@ def balanced_forman_post_delta(A, x, y, i_neighbors, j_neighbors, D=None):
 
 
 def sdrf(
-    data, loops=10, remove_edges=True, removal_bound=0.5, tau=1, is_undirected=False
-):
+    data: Data,
+    loops: int = 10,
+    remove_edges: bool = True,
+    removal_bound: float = 0.5,
+    tau: float = 1,
+    is_undirected: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor]:
     N = data.x.shape[0]
     A = np.zeros(shape=(N, N))
     m = data.edge_index.shape[1]

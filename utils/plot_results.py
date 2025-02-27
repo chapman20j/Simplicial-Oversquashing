@@ -36,6 +36,8 @@ def _row_reduce(x):
     for s in x:
         if s in rewiring_names:
             out.append(rewiring_names[s])
+        elif isinstance(s, int):
+            out.append(str(s))
         else:
             out.append(s.capitalize())
     return tuple(out)
@@ -102,7 +104,7 @@ def pd_to_mean_pm_std(df_mean, df_spread) -> DataFrame:
             row = _row_reduce(r)
             mean = df_mean.at[r, col]
             std = df_spread.at[r, col]
-            formatted_df.at[row, col] = f"${100*mean:.1f} \\pm {100*std:.1f}$"
+            formatted_df.at[row, col] = f"${mean:.1f} \\pm {std:.1f}$"
 
     return formatted_df
 
@@ -178,20 +180,104 @@ def orig_df_to_latex(
     return subtables
 
 
+# * Specific Plotting Functions
+
+
+def plot_ablation(path: str):
+
+    if "layers" in path:
+        variable = "config/model/num_layers"
+    elif "hidden" in path:
+        variable = "config/model/hidden_dim"
+    else:
+        raise ValueError("Invalid path")
+
+    df = load_results(path)
+    print(df)
+
+    stat = "test_metric"
+
+    group_df = get_result_stats(
+        df,
+        [
+            "config/complex",
+            "config/dataset",
+            "config/rewire_iterations",
+            "config/model_name",
+            variable,
+        ],
+        stat,
+    )
+
+    print(group_df)
+
+    group_df.columns = ["_".join(col).strip() for col in group_df.columns.values]
+    mean_df = group_df.reset_index().pivot_table(
+        index=["config/complex", variable],
+        columns="config/rewire_iterations",
+        values="test_metric_mean",
+        aggfunc="mean",
+    )
+    sem_df = group_df.reset_index().pivot_table(
+        index=["config/complex", variable],
+        columns="config/rewire_iterations",
+        values="test_metric_sem",
+        aggfunc="mean",
+    )
+
+    print(mean_df)
+    print(sem_df)
+
+    sem_df = sem_df.round(1)
+
+    result_df = mean_df.astype(str) + " \pm " + sem_df.astype(str)
+    print(result_df)
+
+    latex_table = result_df.to_latex(escape=False)
+    print(latex_table)
+
+
+def plot_tree_experiment(path: str):
+    df = load_results(path)
+
+    stat = "test_metric"
+
+    group_df = get_result_stats(
+        df,
+        [
+            "config/complex",
+            "config/rewiring",
+            "config/dataset",
+            "config/model_name",
+            "config/dataset_kwargs/cycles",
+            "config/dataset_kwargs/max_depth",
+        ],
+        stat,
+    )
+    print(group_df)
+
+
 if __name__ == "__main__":
 
     # * Transfer
     # Update path to experiments
+    # TODO: Update path to results
     transfer_path = None
     if transfer_path is None:
         raise ValueError("Please update path to results")
 
+    # TODO: Update path to results
     # The following code was used for plotting the results in the paper
     # The folders will change depending on the experimental setup
     rgcn_folders = [
         "1 SIZE/rgcn both/",
         "1 WIDTH/rgcn both/",
         "1 REWIRE/rgcn both/",
+    ]
+    rgcn_ring_folders = [
+        "1 SIZE/rgcn ring/",
+        "1 WIDTH/rgcn ring/",
+        "1 REWIRE/rgcn ring/",
     ]
     gin_folders = [
         "1 SIZE/gin none/",
@@ -209,7 +295,9 @@ if __name__ == "__main__":
 
     plt.rcParams.update({"font.size": 18})
 
-    for fgin, frgcn, e in zip(gin_folders, rgcn_folders, exp):
+    for fgin, frgcn, frgcn_ring, e in zip(
+        gin_folders, rgcn_folders, rgcn_ring_folders, exp
+    ):
         print(e)
 
         if e == "size":
@@ -221,8 +309,6 @@ if __name__ == "__main__":
             size_var = "config/model/hidden_dim"
         elif e == "rewire":
             size_var = "config/rewire_iterations"
-        elif e == "depth":
-            size_var = "config/model/num_layers"
 
         save_path = f"./results/transfer/ring_{e}.png"
 
@@ -230,10 +316,11 @@ if __name__ == "__main__":
         color1 = "mediumaquamarine"
         color2 = "cornflowerblue"
         color3 = "darkorange"
+        color4 = "darkorchid"
 
         # * GIN
-        mean_df = pd.read_csv(transfer_path + fgin + f"{e}_{dataset}_{stat}_mean.csv")
-        sem_df = pd.read_csv(transfer_path + fgin + f"{e}_{dataset}_{stat}_sem.csv")
+        mean_df = pd.read_csv(transfer_path + fgin + f"{e}_{dataset}_test_acc_mean.csv")
+        sem_df = pd.read_csv(transfer_path + fgin + f"{e}_{dataset}_test_acc_sem.csv")
 
         col = "none"
 
@@ -252,8 +339,10 @@ if __name__ == "__main__":
         )
 
         # * RGCN
-        mean_df = pd.read_csv(transfer_path + frgcn + f"{e}_{dataset}_{stat}_mean.csv")
-        sem_df = pd.read_csv(transfer_path + frgcn + f"{e}_{dataset}_{stat}_sem.csv")
+        mean_df = pd.read_csv(
+            transfer_path + frgcn + f"{e}_{dataset}_test_acc_mean.csv"
+        )
+        sem_df = pd.read_csv(transfer_path + frgcn + f"{e}_{dataset}_test_acc_sem.csv")
 
         col = "none"
         plt.plot(
@@ -289,6 +378,31 @@ if __name__ == "__main__":
             color=color3,
         )
 
+        # * RGCN Ring
+        # * GIN
+        mean_df = pd.read_csv(
+            transfer_path + frgcn_ring + f"{e}_{dataset}_test_metric_mean.csv"
+        )
+        sem_df = pd.read_csv(
+            transfer_path + frgcn_ring + f"{e}_{dataset}_test_metric_sem.csv"
+        )
+
+        col = "ring"
+
+        plt.plot(
+            mean_df[size_var],
+            mean_df[col] / 100,
+            label=f"RGCN/{col.capitalize()}",
+            color=color4,
+        )
+        plt.fill_between(
+            mean_df[size_var],
+            (mean_df[col] - sem_df[col]) / 100,
+            (mean_df[col] + sem_df[col]) / 100,
+            alpha=0.2,
+            color=color4,
+        )
+
         if size_var == "config/model/hidden_dim":
             plt.xscale("log")
         plt.xlabel(xaxis_map[e], fontdict={"fontsize": 18})
@@ -302,12 +416,16 @@ if __name__ == "__main__":
     folders = [
         "2 NMATCH RGCN/rewire none/",
         "2 NMATCH RGCN/rewire clique/",
+        "2 NMATCH RGCN/rewire ring/",
     ]
-    lift_list = ["none", "clique"]
+    lift_list = ["none", "clique", "ring"]
     e = "rewire"
     dataset = "nmatch"
     size_var = "config/rewire_iterations"
     for frgcn, lift in zip(folders, lift_list):
+
+        stat = "test_acc" if lift != "ring" else "test_metric"
+        scalar = 100 if lift == "ring" else 1
 
         # RGCN
         mean_df = pd.read_csv(transfer_path + frgcn + f"{e}_{dataset}_{stat}_mean.csv")
@@ -316,15 +434,15 @@ if __name__ == "__main__":
         col = lift
         plt.plot(
             mean_df[size_var],
-            mean_df[col],
+            mean_df[col] / scalar,
             label=f"{col.capitalize()}",
         )
 
         # Include color fill for standard error
         plt.fill_between(
             mean_df[size_var],
-            mean_df[col] - sem_df[col],
-            mean_df[col] + sem_df[col],
+            (mean_df[col] - sem_df[col]) / scalar,
+            (mean_df[col] + sem_df[col]) / scalar,
             alpha=0.2,
         )
 
@@ -332,47 +450,6 @@ if __name__ == "__main__":
 
     save_path = f"./results/transfer/nmatch_{e}.png"
     plt.xlabel(xaxis_map[e], fontdict={"fontsize": 12})
-    plt.ylabel("Accuracy (%)", fontdict={"fontsize": 12})
-    plt.tight_layout()
-    plt.legend(title="Lift")
-    plt.savefig(f"{save_path}")
-    print(f"{save_path}")
-    plt.clf()
-
-    # * Neighbors Match with density
-    for frgcn, lift in zip(folders, lift_list):
-
-        # RGCN
-        mean_df = pd.read_csv(transfer_path + frgcn + f"{e}_{dataset}_{stat}_mean.csv")
-        sem_df = pd.read_csv(transfer_path + frgcn + f"{e}_{dataset}_{stat}_sem.csv")
-
-        if lift == "none":
-            max_edges = 15 * 7
-            base_edges = 32
-        else:
-            max_edges = 77 * 38
-            base_edges = 764
-
-        col = lift
-        plt.plot(
-            (base_edges + mean_df[size_var]) / max_edges,
-            mean_df[col],
-            label=f"{col.capitalize()}",
-        )
-
-        # Include color fill for standard error
-        plt.fill_between(
-            (base_edges + mean_df[size_var]) / max_edges,
-            mean_df[col] - sem_df[col],
-            mean_df[col] + sem_df[col],
-            alpha=0.2,
-        )
-
-    plt.rcParams.update({"font.size": 12})
-
-    save_path = f"./results/transfer/nmatch_edgedensity_{e}.png"
-    plt.xlabel("Density", fontdict={"fontsize": 12})
-    plt.xlim(0, 1)
     plt.ylabel("Accuracy (%)", fontdict={"fontsize": 12})
     plt.tight_layout()
     plt.legend(title="Lift")
@@ -389,14 +466,15 @@ if __name__ == "__main__":
             mpatches.Patch(color=color1, label="GIN/None"),
             mpatches.Patch(color=color2, label="RGCN/None"),
             mpatches.Patch(color=color3, label="RGCN/Clique"),
+            mpatches.Patch(color=color4, label="RGCN/Ring"),
         ],
         loc="lower left",
-        ncol=3,
+        ncol=4,
         title="Model/Lift",
         borderaxespad=0.0,
     )
     # Change fig size
-    # fig.set_size_inches(3, 2)
+    fig.set_size_inches(8, 2)
     fig.tight_layout()
     fig.savefig("./results/transfer/ring_legend.png")
     plt.clf()

@@ -39,6 +39,7 @@ class GIN(torch.nn.Module):
         x = self.conv1(x, edge_index)
         for conv in self.convs:
             x = conv(x, edge_index)
+
         x = self.pooling(x, batch)
         x = F.relu(self.lin1(x))
         x = F.dropout(x, self.dropout, training=self.training)

@@ -3,9 +3,11 @@
 Adapted from  https://github.com/Weber-GeoML/AFRC_Rewiring/
 """
 
+import networkx as nx
 import numpy as np
 import torch
 from sklearn.mixture import GaussianMixture
+from torch_geometric.data import Data
 from torch_geometric.utils import to_networkx
 
 from utils.adjacency import Adjacency
@@ -13,7 +15,9 @@ from utils.adjacency import Adjacency
 from .FormanRicci4 import FormanRicci4
 
 
-def _preprocess_data(data, is_undirected=False):
+def _preprocess_data(
+    data: Data, is_undirected: bool = False
+) -> tuple[nx.Graph, int, np.ndarray]:
     # Get necessary data information
     N = data.x.shape[0]
     m = data.edge_index.shape[1]
@@ -53,10 +57,10 @@ def _find_threshold(curv_vals: np.ndarray) -> float:
 # afrc-4 based rewiring
 # Modified this to put all info into a separate edge_index and edge_type
 def borf5(
-    data,
-    loops=10,
-    remove_edges=False,
-):
+    data: Data,
+    loops: int = 10,
+    remove_edges: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor]:
     # Preprocess data
     edge_index = data.edge_index
     G, N, edge_type = _preprocess_data(data)

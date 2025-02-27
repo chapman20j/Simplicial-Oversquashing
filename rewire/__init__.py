@@ -5,7 +5,7 @@ Implements function to apply rewiring to a dataset.
 import torch
 from torch_geometric.data import Data
 
-from rewire import borf, fosr, sdrf
+from rewire import borf, fosr, prune, sdrf
 
 
 def rewire(dataset: list[Data], rewiring_method: str, rewire_iterations: int):
@@ -45,6 +45,22 @@ def rewire(dataset: list[Data], rewiring_method: str, rewire_iterations: int):
                 dataset[i],
                 loops=rewire_iterations,
                 remove_edges=False,
+            )
+    elif rewiring_method == "prune":
+        for i in range(len(dataset)):
+            # NOTE: This modifies in place
+            prune.prune_rewire(
+                dataset[i],
+                rewire_iterations=rewire_iterations,
+                curvature_mtd="bfc",
+            )
+    elif rewiring_method == "prune1d":
+        for i in range(len(dataset)):
+            # NOTE: This modifies in place
+            prune.prune_rewire(
+                dataset[i],
+                rewire_iterations=rewire_iterations,
+                curvature_mtd="1d",
             )
     else:
         raise ValueError("Invalid rewiring method")
